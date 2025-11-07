@@ -1,5 +1,5 @@
 package main
-
+ // author Semyon5700
 import (
 	"encoding/json"
 	"fmt"
