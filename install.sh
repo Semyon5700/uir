@@ -1,5 +1,5 @@
 #!/bin/bash
-
+#author Semyon5700
 # uir package manager installer
 # Version: 1.0
 
@@ -7,6 +7,7 @@ set -e
 
 echo "=== uir Package Manager Installer ==="
 echo "Version: 1.0"
+echo author Semyon5700
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
