@@ -4,7 +4,8 @@ A lightweight universal package manager written in Go.
 
 ## 📖 About
 
-uir (Universal Package Manager) is a simple yet powerful package management system designed for easy software distribution and management. It provides clean CLI interface, self-updating capability, and reliable package handling.
+uir is a simple yet powerful package management system designed for easy software distribution and management. It provides clean CLI interface, self-updating capability, and reliable package handling.
+LICENSE in LICENSE file!
 
 ## 🚀 Features
 
