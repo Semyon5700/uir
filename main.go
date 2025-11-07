@@ -1,5 +1,5 @@
 package main
- // author Semyon5700
+
 import (
 	"encoding/json"
 	"fmt"
@@ -63,18 +63,14 @@ func main() {
 			return
 		}
 		packageInfo(os.Args[2])
-	case "update":
-		updatePackageManager()
-	case "self-update":
+	case "build":
 		if len(os.Args) < 3 {
-			fmt.Println("Error: Please specify package file for update")
+			fmt.Println("Error: Please specify package directory")
 			return
 		}
-		selfUpdate(os.Args[2])
+		buildPackage(os.Args[2])
 	case "version":
 		fmt.Printf("uir package manager v%s\n", UIR_VERSION)
-	case "self-remove":
-		removeUirSelf()
 	default:
 		printUsage()
 	}
@@ -82,15 +78,13 @@ func main() {
 
 func printUsage() {
 	fmt.Printf("uir package manager v%s\n", UIR_VERSION)
-	fmt.Println("Usage: uir {install|remove|list|info|update|self-update|self-remove|version} [package]")
-	fmt.Println("  install      - Install a package")
-	fmt.Println("  remove       - Remove a package (including uir itself)")
-	fmt.Println("  list         - List installed packages") 
-	fmt.Println("  info         - Show package information")
-	fmt.Println("  update       - Update package manager")
-	fmt.Println("  self-update  - Update uir from .uir package")
-	fmt.Println("  self-remove  - Completely remove uir package manager")
-	fmt.Println("  version      - Show version")
+	fmt.Println("Usage: uir {install|remove|list|info|build|version} [package]")
+	fmt.Println("  install - Install a package")
+	fmt.Println("  remove  - Remove a package") 
+	fmt.Println("  list    - List installed packages")
+	fmt.Println("  info    - Show package information")
+	fmt.Println("  build   - Build package from directory")
+	fmt.Println("  version - Show version")
 }
 
 func installPackage(pkgFile string) {
@@ -175,12 +169,6 @@ func removePackage(pkgName string) {
 		return
 	}
 
-	// Special case: remove uir itself
-	if pkgName == "uir" {
-		removeUirSelf()
-		return
-	}
-
 	pkgDir := filepath.Join(UIR_DIR, pkgName)
 	if _, err := os.Stat(pkgDir); os.IsNotExist(err) {
 		fmt.Printf("Package %s is not installed\n", pkgName)
@@ -208,43 +196,41 @@ func removePackage(pkgName string) {
 	fmt.Printf("Package %s successfully removed!\n", pkgName)
 }
 
-func removeUirSelf() {
-	if os.Geteuid() != 0 {
-		fmt.Println("Error: Self-removal requires root privileges")
+func buildPackage(pkgDir string) {
+	if _, err := os.Stat(pkgDir); os.IsNotExist(err) {
+		fmt.Printf("Error: Directory %s does not exist\n", pkgDir)
 		return
 	}
 
-	fmt.Println("Removing uir package manager...")
-	
-	// Remove all installed packages first
-	dbPath := filepath.Join(UIR_CONFIG, "installed.json")
-	if file, err := os.Open(dbPath); err == nil {
-		var packages map[string]InstalledPackage
-		decoder := json.NewDecoder(file)
-		if decoder.Decode(&packages) == nil {
-			for pkgName := range packages {
-				if pkgName != "uir" {
-					fmt.Printf("Removing dependent package: %s\n", pkgName)
-					pkgDir := filepath.Join(UIR_DIR, pkgName)
-					os.RemoveAll(pkgDir)
-				}
-			}
-		}
-		file.Close()
+	// Check for set.conf
+	configFile := filepath.Join(pkgDir, "set.conf")
+	if _, err := os.Stat(configFile); os.IsNotExist(err) {
+		fmt.Printf("Error: set.conf not found in %s\n", pkgDir)
+		return
 	}
 
-	// Remove uir package files
-	uirDir := filepath.Join(UIR_DIR, "uir")
-	os.RemoveAll(uirDir)
+	// Read config to get package name
+	config, err := readConfig(configFile)
+	if err != nil {
+		fmt.Printf("Error reading set.conf: %v\n", err)
+		return
+	}
 
-	// Remove system files and binaries
-	os.Remove("/usr/local/bin/uir")
-	os.Remove("/usr/local/bin/uir-build")
-	os.RemoveAll(UIR_CONFIG)
-	os.RemoveAll(UIR_DIR)
-	os.RemoveAll(UIR_TEMP)
+	pkgFile := config.Name + ".uir"
+	
+	fmt.Printf("Building package %s from %s...\n", pkgFile, pkgDir)
 
-	fmt.Println("uir package manager completely removed!")
+	// Create package using tar
+	cmd := exec.Command("tar", "-czf", pkgFile, "-C", pkgDir, ".")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Build error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Package %s successfully built!\n", pkgFile)
 }
 
 func listPackages() {
@@ -323,32 +309,6 @@ func packageInfo(pkgName string) {
 			fmt.Printf("  %s -> %s\n", src, link)
 		}
 	}
-}
-
-func updatePackageManager() {
-	fmt.Println("Checking for updates...")
-	fmt.Println("Use: uir self-update <package.uir>")
-}
-
-func selfUpdate(pkgFile string) {
-	if os.Geteuid() != 0 {
-		fmt.Println("Error: Self-update requires root privileges")
-		return
-	}
-
-	fmt.Println("Self-updating uir package manager...")
-	
-	// Use current uir to install the update
-	cmd := exec.Command("/usr/local/bin/uir", "install", pkgFile)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("Update error: %v\n", err)
-		return
-	}
-	
-	fmt.Println("uir package manager successfully updated to latest version!")
 }
 
 // Helper functions
